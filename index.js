@@ -24,7 +24,7 @@ app.use(express.json());
 // -----------------------------
 // 🌍 الاتصال بـ MongoDB
 // -----------------------------
-mongoose.connect('mongodb+srv://admin:admin@cluster0.tawg3vv.mongodb.net/ihsas')
+mongoose.connect('mongodb+srv://insertionnouaceurwings_db_user:admin@cluster0.n39fpvm.mongodb.net/?appName=Cluster0/ihsan')
   .then(() => console.log('✅ Connected to MongoDB Atlas'))
   .catch(err => console.error('❌ Could not connect to MongoDB:', err));
 
