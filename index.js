@@ -39,6 +39,8 @@ const upload = multer({ storage });
 // -----------------------------
 const Admin = require('./modules/admin');
 const Candidat = require('./modules/candidat');
+const Center = require("./modules/center");
+const Filiere = require("./modules/filiere");
 
 
 
@@ -101,49 +103,61 @@ app.post('/api/admin/login', async (req, res) => {
 });
 
 // -----------------------------
-// 🔹 إضافة مترشح جديد
+// 🔹 Ajouter un candidat
 // -----------------------------
-// إضافة مترشح بدون رفع الملفات على Drive
-app.post('/api/candidat/add', upload.fields([{ name: 'cv' }, { name: 'cover' }]), async (req, res) => {
-  try {
-    const { fullName, linkedin, portfolio } = req.body;
-    const cv = req.files?.cv?.[0];
-    const cover = req.files?.cover?.[0];
+app.post(
+  '/api/candidat/add',
+  upload.fields([{ name: 'cv' }, { name: 'cover' }]),
+  async (req, res) => {
+    try {
+      const { fullName, linkedin, portfolio, filiere, center } = req.body;
 
-    // حفظ الملفات مباشرة كـ buffer أو اسم الملف في MongoDB
-    const candidat = new Candidat({
-      fullName,
-      linkedin,
-      portfolio,
-      cvData: cv ? cv.buffer : null,       // تخزين الملف كـ Buffer
-      cvName: cv ? cv.originalname : null, // اسم الملف
-      coverLetterData: cover ? cover.buffer : null,
-      coverLetterName: cover ? cover.originalname : null,
-      createdAt: new Date()
-    });
+      const cv = req.files?.cv?.[0];
+      const cover = req.files?.cover?.[0];
 
-    await candidat.save();
-    res.json({ message: '✅ Candidat ajouté avec succès dans MongoDB' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erreur lors de l’enregistrement du candidat' });
+      const candidat = new Candidat({
+        fullName,
+        linkedin,
+        portfolio,
+        filiere,  // ← relation ajoutée
+        center,   // ← relation ajoutée
+        cvData: cv ? cv.buffer : null,
+        cvName: cv ? cv.originalname : null,
+        coverLetterData: cover ? cover.buffer : null,
+        coverLetterName: cover ? cover.originalname : null,
+        createdAt: new Date()
+      });
+
+      await candidat.save();
+
+      res.json({ message: '✅ Candidat ajouté avec succès' });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Erreur lors de l’ajout du candidat' });
+    }
   }
-});
+);
 
 
 // -----------------------------
-// 🔹 عرض المترشحين (محمي بـ JWT)
+// 🔹 Afficher tous les candidats (avec relations)
 // -----------------------------
 app.get('/api/candidat/all', verifyToken, async (req, res) => {
   try {
-    const candidats = await Candidat.find().sort({ createdAt: -1 });
-    
-    // تحويل Buffer إلى Base64
+    const candidats = await Candidat.find()
+      .populate("filiere", "name description")
+      .populate("center", "name address phone")
+      .sort({ createdAt: -1 });
+
     const data = candidats.map(c => ({
       _id: c._id,
       fullName: c.fullName,
       linkedin: c.linkedin,
       portfolio: c.portfolio,
+
+      filiere: c.filiere,
+      center: c.center,
+
       cvData: c.cvData ? c.cvData.toString('base64') : null,
       cvName: c.cvName,
       coverLetterData: c.coverLetterData ? c.coverLetterData.toString('base64') : null,
@@ -185,38 +199,50 @@ app.delete('/api/candidat/:id', async (req, res) => {
 // -----------------------------
 
 
-app.put('/api/candidat/:id', upload.fields([{ name: 'cv' }, { name: 'cover' }]), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { fullName, linkedin, portfolio } = req.body;
-    const cv = req.files?.cv?.[0];
-    const cover = req.files?.cover?.[0];
+// -----------------------------
+// 🔹 Modifier un candidat
+// -----------------------------
+app.put(
+  '/api/candidat/:id',
+  upload.fields([{ name: 'cv' }, { name: 'cover' }]),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { fullName, linkedin, portfolio, filiere, center } = req.body;
 
-    const updateData = {
-      fullName,
-      linkedin,
-      portfolio,
-    };
+      const cv = req.files?.cv?.[0];
+      const cover = req.files?.cover?.[0];
 
-    if (cv) {
-      updateData.cvData = cv.buffer;
-      updateData.cvName = cv.originalname;
+      const updateData = {
+        fullName,
+        linkedin,
+        portfolio,
+        filiere,
+        center
+      };
+
+      if (cv) {
+        updateData.cvData = cv.buffer;
+        updateData.cvName = cv.originalname;
+      }
+
+      if (cover) {
+        updateData.coverLetterData = cover.buffer;
+        updateData.coverLetterName = cover.originalname;
+      }
+
+      const updated = await Candidat.findByIdAndUpdate(id, updateData, { new: true });
+
+      if (!updated)
+        return res.status(404).json({ message: "❌ Candidat non trouvé" });
+
+      res.json({ message: "✏️ Candidat mis à jour avec succès", candidat: updated });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
-
-    if (cover) {
-      updateData.coverLetterData = cover.buffer;
-      updateData.coverLetterName = cover.originalname;
-    }
-
-    const updated = await Candidat.findByIdAndUpdate(id, updateData, { new: true });
-
-    if (!updated) return res.status(404).json({ message: "❌ Candidat non trouvé" });
-
-    res.json({ message: "✏️ Candidat mis à jour avec succès", candidat: updated });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
   }
-});
+);
+
 
 app.get('/api/candidat/:id/cv', async (req, res) => {
   try {
@@ -246,6 +272,131 @@ app.get('/api/candidat/:id/cover', async (req, res) => {
     res.status(500).send(err.message);
   }
 });
+
+// ===== CRUD لشعبة (Filiere) =====
+
+// إنشاء شعبة جديدة
+app.post("/api/filiere", async (req, res) => {
+  try {
+    const { name, description } = req.body;
+    const filiere = new Filiere({ name, description });
+    await filiere.save();
+    res.status(201).json({ message: "Filière créée", filiere });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// قراءة كل الشعب
+app.get("/api/filiere", async (req, res) => {
+  try {
+    const filieres = await Filiere.find();
+    res.json(filieres);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// قراءة شعبة واحدة حسب id
+app.get("/api/filiere/:id", async (req, res) => {
+  try {
+    const filiere = await Filiere.findById(req.params.id);
+    if (!filiere) return res.status(404).json({ message: "Filière non trouvée" });
+    res.json(filiere);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// تحديث شعبة
+app.put("/api/filiere/:id", async (req, res) => {
+  try {
+    const { name, description } = req.body;
+    const filiere = await Filiere.findByIdAndUpdate(
+      req.params.id,
+      { name, description },
+      { new: true }
+    );
+    if (!filiere) return res.status(404).json({ message: "Filière non trouvée" });
+    res.json({ message: "Filière mise à jour", filiere });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// حذف شعبة
+app.delete("/api/filiere/:id", async (req, res) => {
+  try {
+    const filiere = await Filiere.findByIdAndDelete(req.params.id);
+    if (!filiere) return res.status(404).json({ message: "Filière non trouvée" });
+    res.json({ message: "Filière supprimée" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===== CRUD للمراكز / التكوينات (Center) =====
+
+// إنشاء مركز (center)
+app.post("/api/center", async (req, res) => {
+  try {
+    const { name, description, address, phone } = req.body;
+    const center = new Center({ name, description, address, phone });
+    await center.save();
+    res.status(201).json({ message: "Center créé", center });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// قراءة كل المراكز
+app.get("/api/center", async (req, res) => {
+  try {
+    const centers = await Center.find();
+    res.json(centers);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// قراءة مركز واحد حسب id
+app.get("/api/center/:id", async (req, res) => {
+  try {
+    const center = await Center.findById(req.params.id);
+    if (!center) return res.status(404).json({ message: "Center non trouvé" });
+    res.json(center);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// تحديث مركز
+app.put("/api/center/:id", async (req, res) => {
+  try {
+    const { name, description, address, phone } = req.body;
+    const center = await Center.findByIdAndUpdate(
+      req.params.id,
+      { name, description, address, phone },
+      { new: true }
+    );
+    if (!center) return res.status(404).json({ message: "Center non trouvé" });
+    res.json({ message: "Center mis à jour", center });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// حذف مركز
+app.delete("/api/center/:id", async (req, res) => {
+  try {
+    const center = await Center.findByIdAndDelete(req.params.id);
+    if (!center) return res.status(404).json({ message: "Center non trouvé" });
+    res.json({ message: "Center supprimé" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // -----------------------------
 // 🚀 تشغيل الخادم
 // -----------------------------
