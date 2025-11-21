@@ -1,9 +1,6 @@
 {
   "name": "ihsas_back",
   "version": "1.0.0",
-  "resolutions": {
-    "glob": "^10.5.0"
-  },
   "description": "Backend Node.js pour l'application IHSAS",
   "main": "index.js",
   "scripts": {
