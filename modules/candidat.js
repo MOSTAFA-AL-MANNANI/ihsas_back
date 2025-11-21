@@ -25,6 +25,28 @@ const candidatSchema = new mongoose.Schema({
   coverLetterData: Buffer,
   coverLetterName: String,
 
+    // 🟦 حالة المترشح (Tracking Status)
+  statusTracking: {
+    currentStatus: {
+      type: String,
+      enum: ["Disponible", "En Stage", "En Travail"],
+      default: "Disponible"
+    },
+
+    // 🔵 STAGE
+    stageCompany: String,
+    stageTitle: String,
+    stageStartDate: Date,
+    stageEndDate: Date,
+    stageType: { type: String },
+
+    // 🔴 JOB
+    jobCompany: String,
+    jobTitle: String,
+    jobContractType: String,
+    jobStartDate: Date,
+  },
+
   createdAt: { type: Date, default: Date.now }
 });
 

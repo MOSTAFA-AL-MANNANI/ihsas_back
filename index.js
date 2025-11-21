@@ -24,7 +24,8 @@ app.use(express.json());
 // -----------------------------
 // 🌍 الاتصال بـ MongoDB
 // -----------------------------
-mongoose.connect('mongodb+srv://ihsan:admin@cluster0.n39fpvm.mongodb.net/ihsan')
+//mongodb+srv://ihsan:admin@cluster0.n39fpvm.mongodb.net/ihsan
+mongoose.connect(process.env.MONGO_URI, )
   .then(() => console.log('✅ Connected to MongoDB Atlas'))
   .catch(err => console.error('❌ Could not connect to MongoDB:', err));
 
@@ -92,8 +93,8 @@ app.post('/api/admin/login', async (req, res) => {
 
     const token = jwt.sign(
       { id: admin._id, email: admin.email },
-      process.env.JWT_SECRET || 'secretKey',
-      { expiresIn: '2h' }
+      process.env.JWT_SECRET ,
+      
     );
 
     res.json({ message: 'Connexion réussie ✅', token });
@@ -119,12 +120,20 @@ app.post(
         fullName,
         linkedin,
         portfolio,
-        filiere,  // ← relation ajoutée
-        center,   // ← relation ajoutée
+        filiere,
+        center,
+
+        // الملفات
         cvData: cv ? cv.buffer : null,
         cvName: cv ? cv.originalname : null,
         coverLetterData: cover ? cover.buffer : null,
         coverLetterName: cover ? cover.originalname : null,
+
+        // 🟦 الحالة الأولية
+        statusTracking: {
+          currentStatus: "Disponible",
+        },
+
         createdAt: new Date()
       });
 
@@ -137,6 +146,7 @@ app.post(
     }
   }
 );
+
 
 
 // -----------------------------
@@ -298,15 +308,15 @@ app.get("/api/filiere", async (req, res) => {
 });
 
 // قراءة شعبة واحدة حسب id
-app.get("/api/filiere/:id", async (req, res) => {
-  try {
-    const filiere = await Filiere.findById(req.params.id);
-    if (!filiere) return res.status(404).json({ message: "Filière non trouvée" });
-    res.json(filiere);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// app.get("/api/filiere/:id", async (req, res) => {
+//   try {
+//     const filiere = await Filiere.findById(req.params.id);
+//     if (!filiere) return res.status(404).json({ message: "Filière non trouvée" });
+//     res.json(filiere);
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// });
 
 // تحديث شعبة
 app.put("/api/filiere/:id", async (req, res) => {
@@ -396,6 +406,195 @@ app.delete("/api/center/:id", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+app.put("/api/candidat/:id/stage", async (req, res) => {
+  try {
+    const { stageCompany, stageTitle, stageStartDate, stageEndDate, stageType } = req.body;
+
+    const updated = await Candidat.findByIdAndUpdate(
+      req.params.id,
+      {
+        statusTracking: {
+          currentStatus: "En Stage",
+          stageCompany,
+          stageTitle,
+          stageStartDate,
+          stageEndDate,
+          stageType,
+        }
+      },
+      { new: true }
+    );
+
+    res.json({ message: "Stage mis à jour avec succès", updated });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+//job update
+
+app.put("/api/candidat/:id/job", async (req, res) => {
+  try {
+    const { jobCompany, jobTitle, jobContractType, jobStartDate } = req.body;
+
+    const updated = await Candidat.findByIdAndUpdate(
+      req.params.id,
+      {
+        statusTracking: {
+          currentStatus: "En Travail",
+          jobCompany,
+          jobTitle,
+          jobContractType,
+          jobStartDate,
+        }
+      },
+      { new: true }
+    );
+
+    res.json({ message: "Job mis à jour avec succès", updated });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+//disponible update
+app.put("/api/candidat/:id/disponible", async (req, res) => {
+  try {
+
+    const updated = await Candidat.findByIdAndUpdate(
+      req.params.id,
+      {
+        statusTracking: {
+          currentStatus: "Disponible"
+        }
+      },
+      { new: true }
+    );
+
+    res.json({ message: "Candidat marqué comme disponible", updated });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/candidat/filter', verifyToken, async (req, res) => {
+  try {
+    const { center, status } = req.query;
+
+    let filter = {};
+
+    if (center) filter.center = center;
+    if (status) filter["statusTracking.currentStatus"] = status;
+
+    const candidats = await Candidat.find(filter)
+      .populate("center", "name address")
+      .populate("filiere", "name")
+      .sort({ createdAt: -1 });
+
+    res.json(candidats);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// API لجلب المترشحين حسب التصفية
+app.get("/api/candidat/filters", verifyToken, async (req, res) => {
+  try {
+    const { center, filiere, status } = req.query;
+
+    const query = {};
+
+    if (center) query.center = center;
+    if (filiere) query.filiere = filiere;
+    if (status) query["statusTracking.currentStatus"] = status;
+
+    const candidats = await Candidat.find(query)
+      .populate("center", "name")
+      .populate("filiere", "name");
+
+    res.json(candidats);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 📊 GET /api/stats/center/:centerId
+app.get("/api/stats/center/:centerId", async (req, res) => {
+  try {
+    const centerId = req.params.centerId;
+
+    const stats = await Candidat.aggregate([
+      { $match: { center: new mongoose.Types.ObjectId(centerId) } },
+
+      {
+        $group: {
+          _id: "$statusTracking.currentStatus",
+          total: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // تنسيق الإخراج
+    const formattedStats = {
+      Disponible: 0,
+      "En Stage": 0,
+      "En Travail": 0
+    };
+
+    stats.forEach(s => {
+      formattedStats[s._id] = s.total;
+    });
+
+    res.json({
+      center: centerId,
+      statistics: formattedStats
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/stats/center/:centerId/chart", async (req, res) => {
+  try {
+    const centerId = req.params.centerId;
+
+    const stats = await Candidat.aggregate([
+      { $match: { center: new mongoose.Types.ObjectId(centerId) } },
+      {
+        $group: {
+          _id: "$statusTracking.currentStatus",
+          total: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const labels = ["Disponible", "En Stage", "En Travail"];
+    const data = [0, 0, 0];
+
+    stats.forEach(s => {
+      const index = labels.indexOf(s._id);
+      if (index !== -1) data[index] = s.total;
+    });
+
+    res.json({
+      labels,
+      datasets: [{
+        label: "Nombre de candidats",
+        data
+      }]
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 // -----------------------------
 // 🚀 تشغيل الخادم
