@@ -595,6 +595,79 @@ app.get("/api/stats/center/:centerId/chart", async (req, res) => {
   }
 });
 
+// app.get("/api/stats/centers", async (req, res) => {
+//   try {
+//     // تجميع (aggregation) حسب المركز + الحالة
+//     const agg = await Candidat.aggregate([
+//       // أولاً، نجمع حسب center and status
+//       {
+//         $group: {
+//           _id: {
+//             center: "$center",
+//             status: "$statusTracking.currentStatus"
+//           },
+//           count: { $sum: 1 }
+//         }
+//       },
+//       // ثم نعيد تنظيم البيانات لتكون لكل مركز مجموع الحالات
+//       {
+//         $group: {
+//           _id: "$_id.center",
+//           stats: {
+//             $push: {
+//               status: "$_id.status",
+//               count: "$count"
+//             }
+//           },
+//           total: { $sum: "$count" }
+//         }
+//       },
+//       // نبدأ بضم معلومات المركز (اسم المركز مثلا)
+//       {
+//         $lookup: {
+//           from: "centers", // اسم مجموعة الـ Center في MongoDB (تحقق منه)
+//           localField: "_id",
+//           foreignField: "_id",
+//           as: "centerData"
+//         }
+//       },
+//       // تبسيط المخرجات
+//       {
+//         $project: {
+//           _id: 1,
+//           center: { $arrayElemAt: ["$centerData.name", 0] },
+//           total: 1,
+//           stats: 1
+//         }
+//       }
+//     ]);
+
+//     // نرتّب المراكز بحسب أداء: مثلا حسب من لديهم Stage + Travail
+//     const formatted = agg.map(item => {
+//       // نفصل الأعداد لكل حالة
+//       const obj = { center: item.center, total: item.total };
+//       for (const s of item.stats) {
+//         obj[s.status] = s.count;
+//       }
+//       // تأكد من وجود الحقول إذا بعضها مفقود
+//       obj.Disponible = obj.Disponible || 0;
+//       obj["En Stage"] = obj["En Stage"] || 0;
+//       obj["En Travail"] = obj["En Travail"] || 0;
+//       // حساب "أداء" كمثال: عدد Stage + travail
+//       obj.performance = obj["En Stage"] + obj["En Travail"];
+//       return obj;
+//     });
+
+//     // ترتيب المراكز حسب الأداء (من الأفضل إلى الأقل)
+//     formatted.sort((a, b) => b.performance - a.performance);
+
+//     res.json({ centers: formatted });
+
+//   } catch (err) {
+//     console.error("Error in stats centers:", err);
+//     res.status(500).json({ error: err.message });
+//   }
+// });
 
 // -----------------------------
 // 🚀 تشغيل الخادم
