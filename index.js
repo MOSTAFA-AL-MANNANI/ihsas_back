@@ -291,10 +291,17 @@ app.get('/api/candidat/:id/cover', async (req, res) => {
 // إنشاء شعبة جديدة
 app.post("/api/filiere", async (req, res) => {
   try {
-    const { name, description } = req.body;
-    const filiere = new Filiere({ name, description });
+    const { name, description, center } = req.body;
+
+    const filiere = new Filiere({
+      name,
+      description,
+      center
+    });
+
     await filiere.save();
-    res.status(201).json({ message: "Filière créée", filiere });
+
+    res.status(201).json({ message: "Filière créée avec succès", filiere });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -303,7 +310,7 @@ app.post("/api/filiere", async (req, res) => {
 // قراءة كل الشعب
 app.get("/api/filiere", async (req, res) => {
   try {
-    const filieres = await Filiere.find();
+    const filieres = await Filiere.find().populate("center", "name address phone");
     res.json(filieres);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -324,13 +331,16 @@ app.get("/api/filiere", async (req, res) => {
 // تحديث شعبة
 app.put("/api/filiere/:id", async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, center } = req.body;
+
     const filiere = await Filiere.findByIdAndUpdate(
       req.params.id,
-      { name, description },
+      { name, description, center },
       { new: true }
     );
+
     if (!filiere) return res.status(404).json({ message: "Filière non trouvée" });
+
     res.json({ message: "Filière mise à jour", filiere });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -342,11 +352,25 @@ app.delete("/api/filiere/:id", async (req, res) => {
   try {
     const filiere = await Filiere.findByIdAndDelete(req.params.id);
     if (!filiere) return res.status(404).json({ message: "Filière non trouvée" });
-    res.json({ message: "Filière supprimée" });
+
+    res.json({ message: "Filière supprimée avec succès" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
+app.get("/api/filiere/by-center/:centerId", async (req, res) => {
+  try {
+    const centerId = req.params.centerId;
+
+    const filieres = await Filiere.find({ center: centerId }).populate("center", "name");
+
+    res.json(filieres);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 // ===== CRUD للمراكز / التكوينات (Center) =====
 
