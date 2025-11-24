@@ -25,7 +25,10 @@ app.use(express.json());
 // 🌍 الاتصال بـ MongoDB
 // -----------------------------
 //mongodb+srv://ihsan:admin@cluster0.n39fpvm.mongodb.net/ihsan
-mongoose.connect(process.env.MONGO_URI, )
+mongoose.connect(process.env.MONGO_URI, {
+  serverSelectionTimeoutMS: 30000
+})
+
   .then(() => console.log('✅ Connected to MongoDB Atlas'))
   .catch(err => console.error('❌ Could not connect to MongoDB:', err));
 
