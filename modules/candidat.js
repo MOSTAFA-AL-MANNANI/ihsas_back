@@ -29,7 +29,7 @@ const candidatSchema = new mongoose.Schema({
   statusTracking: {
     currentStatus: {
       type: String,
-      enum: ["Disponible", "En Stage", "En Travail"],
+      enum: ["Disponible", "Stage", "Emploi"],
       default: "Disponible"
     },
 

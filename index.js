@@ -442,7 +442,7 @@ app.put("/api/candidat/:id/stage", async (req, res) => {
       req.params.id,
       {
         statusTracking: {
-          currentStatus: "En Stage",
+          currentStatus: "Stage",
           stageCompany,
           stageTitle,
           stageStartDate,
@@ -470,7 +470,7 @@ app.put("/api/candidat/:id/job", async (req, res) => {
       req.params.id,
       {
         statusTracking: {
-          currentStatus: "En Travail",
+          currentStatus: "Emploi",
           jobCompany,
           jobTitle,
           jobContractType,
@@ -569,8 +569,8 @@ app.get("/api/stats/center/:centerId", async (req, res) => {
     // تنسيق الإخراج
     const formattedStats = {
       Disponible: 0,
-      "En Stage": 0,
-      "En Travail": 0
+      "Stage": 0,
+      "Emploi": 0
     };
 
     stats.forEach(s => {
@@ -601,7 +601,7 @@ app.get("/api/stats/center/:centerId/chart", async (req, res) => {
       }
     ]);
 
-    const labels = ["Disponible", "En Stage", "En Travail"];
+    const labels = ["Disponible", "Stage", "Emploi"];
     const data = [0, 0, 0];
 
     stats.forEach(s => {
@@ -678,10 +678,10 @@ app.get("/api/stats/center/:centerId/chart", async (req, res) => {
 //       }
 //       // تأكد من وجود الحقول إذا بعضها مفقود
 //       obj.Disponible = obj.Disponible || 0;
-//       obj["En Stage"] = obj["En Stage"] || 0;
-//       obj["En Travail"] = obj["En Travail"] || 0;
+//       obj["Stage"] = obj["Stage"] || 0;
+//       obj["Emploi"] = obj["Emploi"] || 0;
 //       // حساب "أداء" كمثال: عدد Stage + travail
-//       obj.performance = obj["En Stage"] + obj["En Travail"];
+//       obj.performance = obj["Stage"] + obj["Emploi"];
 //       return obj;
 //     });
 
